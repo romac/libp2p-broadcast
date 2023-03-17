@@ -1,8 +1,8 @@
 use crate::protocol::Message;
 use fnv::{FnvHashMap, FnvHashSet};
-use libp2p::core::connection::ConnectionId;
 use libp2p::swarm::{
-    NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler, PollParameters,
+    ConnectionId, NetworkBehaviour, NetworkBehaviourAction, NotifyHandler, OneShotHandler,
+    PollParameters,
 };
 use libp2p::{Multiaddr, PeerId};
 use std::collections::VecDeque;
@@ -21,7 +21,6 @@ pub enum BroadcastEvent {
     Unsubscribed(PeerId, Topic),
     Received(PeerId, Topic, Arc<[u8]>),
 }
-type Handler = OneShotHandler<BroadcastConfig, Message, HandlerEvent>;
 
 #[derive(Default)]
 pub struct Broadcast {
@@ -29,7 +28,7 @@ pub struct Broadcast {
     subscriptions: FnvHashSet<Topic>,
     peers: FnvHashMap<PeerId, FnvHashSet<Topic>>,
     topics: FnvHashMap<Topic, FnvHashSet<PeerId>>,
-    events: VecDeque<NetworkBehaviourAction<BroadcastEvent, Handler>>,
+    events: VecDeque<NetworkBehaviourAction<BroadcastEvent, Message>>,
 }
 
 impl fmt::Debug for Broadcast {
@@ -186,7 +185,7 @@ impl NetworkBehaviour for Broadcast {
         &mut self,
         _: &mut Context,
         _: &mut impl PollParameters,
-    ) -> Poll<NetworkBehaviourAction<BroadcastEvent, Handler>> {
+    ) -> Poll<NetworkBehaviourAction<BroadcastEvent, Message>> {
         if let Some(event) = self.events.pop_front() {
             Poll::Ready(event)
         } else {
@@ -271,7 +270,8 @@ mod tests {
                             let mut other = other.lock().unwrap();
                             other.on_connection_handler_event(
                                 *self.peer_id(),
-                                ConnectionId::new(0),
+                                #[allow(deprecated)]
+                                ConnectionId::DUMMY,
                                 HandlerEvent::Rx(event),
                             );
                         }

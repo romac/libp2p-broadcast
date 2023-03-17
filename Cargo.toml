@@ -10,4 +10,4 @@ repository = "https://github.com/ipfs-rust/libp2p-broadcast"
 [dependencies]
 fnv = "1.0.7"
 futures = "0.3.21"
-libp2p = { version = "0.50.0" }
+libp2p = { version = "0.51.0" }

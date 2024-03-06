@@ -1,10 +1,13 @@
-use futures::future::BoxFuture;
-use futures::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
-use libp2p::core::{upgrade, InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use std::io::{Error, ErrorKind, Result};
 use std::sync::Arc;
 
-const PROTOCOL_INFO: &[u8] = b"/ax/broadcast/1.0.0";
+use futures::future::BoxFuture;
+use futures::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use libp2p::core::{InboundUpgrade, OutboundUpgrade, UpgradeInfo};
+
+use crate::util;
+
+const PROTOCOL_INFO: &str = "/ax/broadcast/1.0.0";
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Topic {
@@ -112,7 +115,7 @@ impl Default for BroadcastConfig {
 }
 
 impl UpgradeInfo for BroadcastConfig {
-    type Info = &'static [u8];
+    type Info = &'static str;
     type InfoIter = std::iter::Once<Self::Info>;
 
     fn protocol_info(&self) -> Self::InfoIter {
@@ -130,7 +133,7 @@ where
 
     fn upgrade_inbound(self, mut socket: TSocket, _info: Self::Info) -> Self::Future {
         Box::pin(async move {
-            let packet = upgrade::read_length_prefixed(&mut socket, self.max_buf_size).await?;
+            let packet = util::read_length_prefixed(&mut socket, self.max_buf_size).await?;
             socket.close().await?;
             let request = Message::from_bytes(&packet)?;
             Ok(request)
@@ -139,7 +142,7 @@ where
 }
 
 impl UpgradeInfo for Message {
-    type Info = &'static [u8];
+    type Info = &'static str;
     type InfoIter = std::iter::Once<Self::Info>;
 
     fn protocol_info(&self) -> Self::InfoIter {
@@ -158,7 +161,7 @@ where
     fn upgrade_outbound(self, mut socket: TSocket, _info: Self::Info) -> Self::Future {
         Box::pin(async move {
             let bytes = self.to_bytes();
-            upgrade::write_length_prefixed(&mut socket, bytes).await?;
+            util::write_length_prefixed(&mut socket, &bytes).await?;
             socket.close().await?;
             Ok(())
         })

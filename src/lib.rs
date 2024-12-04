@@ -6,7 +6,8 @@ use bytes::Bytes;
 use fnv::{FnvHashMap, FnvHashSet};
 use libp2p::swarm::derive_prelude::FromSwarm;
 use libp2p::swarm::{
-    ConnectionHandler, ConnectionId, NetworkBehaviour, NotifyHandler, OneShotHandler, ToSwarm,
+    CloseConnection, ConnectionHandler, ConnectionId, NetworkBehaviour, NotifyHandler,
+    OneShotHandler, ToSwarm,
 };
 use libp2p::{Multiaddr, PeerId};
 use prometheus_client::registry::Registry;
@@ -196,7 +197,7 @@ impl NetworkBehaviour for Behaviour {
     fn on_connection_handler_event(
         &mut self,
         peer: PeerId,
-        _: ConnectionId,
+        connection_id: ConnectionId,
         msg: <Self::ConnectionHandler as ConnectionHandler>::ToBehaviour,
     ) {
         use HandlerEvent::*;
@@ -235,7 +236,12 @@ impl NetworkBehaviour for Behaviour {
             }
 
             Err(e) => {
-                tracing::debug!("ConnectionHandler error: {:?}", e);
+                tracing::debug!("Failed to broadcast message: {e}");
+
+                self.events.push_back(ToSwarm::CloseConnection {
+                    peer_id: peer,
+                    connection: CloseConnection::One(connection_id),
+                });
 
                 return;
             }

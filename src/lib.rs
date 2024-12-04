@@ -201,10 +201,10 @@ impl NetworkBehaviour for Behaviour {
     ) {
         use HandlerEvent::*;
         use Message::*;
-        let ev = match msg.unwrap() {
-            Rx(Subscribe(topic)) => {
+        let ev = match msg {
+            Ok(Rx(Subscribe(topic))) => {
                 let peers = self.topics.entry(topic).or_default();
-                self.peers.get_mut(&peer).unwrap().insert(topic);
+                self.peers.entry(peer).or_default().insert(topic);
                 peers.insert(peer);
                 if let Some(metrics) = self.metrics.as_mut() {
                     metrics.inc_topic_peers(&topic);
@@ -212,15 +212,15 @@ impl NetworkBehaviour for Behaviour {
                 Event::Subscribed(peer, topic)
             }
 
-            Rx(Broadcast(topic, msg)) => {
+            Ok(Rx(Broadcast(topic, msg))) => {
                 if let Some(metrics) = self.metrics.as_mut() {
                     metrics.msg_received(&topic, msg.len());
                 }
                 Event::Received(peer, topic, msg)
             }
 
-            Rx(Unsubscribe(topic)) => {
-                self.peers.get_mut(&peer).unwrap().remove(&topic);
+            Ok(Rx(Unsubscribe(topic))) => {
+                self.peers.entry(peer).or_default().remove(&topic);
                 if let Some(peers) = self.topics.get_mut(&topic) {
                     peers.remove(&peer);
                 }
@@ -229,7 +229,14 @@ impl NetworkBehaviour for Behaviour {
                 }
                 Event::Unsubscribed(peer, topic)
             }
-            Tx => {
+
+            Ok(Tx) => {
+                return;
+            }
+
+            Err(e) => {
+                tracing::debug!("ConnectionHandler error: {:?}", e);
+
                 return;
             }
         };
